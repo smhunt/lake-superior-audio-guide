@@ -5,10 +5,18 @@
 
 import { Audio } from 'expo-av';
 import * as Speech from 'expo-speech';
+import WhisperService from './WhisperService';
 
 class AudioService {
   private recording: Audio.Recording | null = null;
   private isRecording = false;
+  private whisperService: WhisperService | null = null;
+
+  constructor(openAIApiKey?: string) {
+    if (openAIApiKey) {
+      this.whisperService = new WhisperService(openAIApiKey);
+    }
+  }
 
   /**
    * Request audio permissions
@@ -65,13 +73,57 @@ class AudioService {
   }
 
   /**
-   * Convert speech to text using Whisper API
-   * TODO: Implement Whisper API or local whisper.cpp
+   * Get recording status
    */
-  async speechToText(audioUri: string): Promise<string> {
-    // Placeholder - will implement Whisper API
-    console.log('Converting speech to text:', audioUri);
-    return 'Transcribed text placeholder';
+  getIsRecording(): boolean {
+    return this.isRecording;
+  }
+
+  /**
+   * Convert speech to text using Whisper API
+   */
+  async speechToText(audioUri: string, useContext: boolean = true): Promise<string> {
+    if (!this.whisperService) {
+      throw new Error('WhisperService not initialized. Provide OpenAI API key to constructor.');
+    }
+
+    const result = useContext
+      ? await this.whisperService.transcribeWithContext(audioUri)
+      : await this.whisperService.transcribe(audioUri);
+
+    if (result.error) {
+      throw new Error(`Transcription failed: ${result.error}`);
+    }
+
+    console.log(`Transcription completed in ${result.duration}ms`);
+    return result.text;
+  }
+
+  /**
+   * Record audio and transcribe in one step
+   */
+  async recordAndTranscribe(): Promise<string> {
+    await this.startRecording();
+
+    // Wait for user to stop recording manually
+    // In a real implementation, this would be triggered by UI
+    return new Promise((resolve, reject) => {
+      // This is just a placeholder - actual implementation
+      // would be triggered by user stopping recording
+      setTimeout(async () => {
+        const uri = await this.stopRecording();
+        if (uri) {
+          try {
+            const text = await this.speechToText(uri);
+            resolve(text);
+          } catch (error) {
+            reject(error);
+          }
+        } else {
+          reject(new Error('No audio recorded'));
+        }
+      }, 5000);
+    });
   }
 
   /**
@@ -102,6 +154,13 @@ class AudioService {
    */
   async isSpeaking(): Promise<boolean> {
     return await Speech.isSpeakingAsync();
+  }
+
+  /**
+   * Check if Whisper is configured
+   */
+  isWhisperConfigured(): boolean {
+    return this.whisperService?.isConfigured() || false;
   }
 }
 

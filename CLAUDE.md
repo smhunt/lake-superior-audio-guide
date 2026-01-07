@@ -6,7 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Interactive AI-driven audio guide for Lake Superior travel with CarPlay/Android Auto integration. Allows conversational questions about geology, Indigenous history, shipwrecks, and local attractions while driving.
 
-**Current Phase**: Pre-development - project setup and foundation work
+**Repository**: https://github.com/smhunt/lake-superior-audio-guide
+
+**Current Phase**: Phase 1 Complete ✅ - Functional voice assistant deployed
 
 ## Development Workflow
 

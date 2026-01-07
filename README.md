@@ -2,6 +2,10 @@
 
 Interactive AI-driven audio companion for Lake Superior travel. Ask questions about geology, Indigenous history, shipwrecks, and attractions while driving.
 
+**Repository**: https://github.com/smhunt/lake-superior-audio-guide
+
+**Status**: Phase 1 Complete ✅ - Functional voice assistant with Claude AI and Whisper STT
+
 ## Features
 
 - **Conversational AI**: Natural language questions powered by Claude

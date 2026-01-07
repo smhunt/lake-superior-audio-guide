@@ -1,5 +1,15 @@
 # Lake Superior Audio Guide - Quick Start
 
+**Repository**: https://github.com/smhunt/lake-superior-audio-guide
+
+## Clone the Repository
+
+```bash
+git clone https://github.com/smhunt/lake-superior-audio-guide.git
+cd lake-superior-audio-guide
+npm install
+```
+
 ## Try the Voice Assistant Now!
 
 ### 1. Setup API Keys

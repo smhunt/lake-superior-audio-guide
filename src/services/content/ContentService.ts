@@ -1,41 +1,91 @@
 /**
  * Content Service
- * Manages POI database and content retrieval
+ * Manages POI database and content retrieval using SQLite
  */
 
 import { POI, POICategory, ContentDepth } from '../../types';
+import DatabaseService from '../database/DatabaseService';
+import { SEED_POIS } from '../../data/poi/seed-data';
 
 class ContentService {
-  private pois: POI[] = [];
+  private db: DatabaseService;
+  private initialized = false;
+
+  constructor() {
+    this.db = new DatabaseService();
+  }
 
   /**
-   * Load POIs from local database
-   * TODO: Implement SQLite storage
+   * Initialize database and load POIs
    */
-  async loadPOIs(): Promise<void> {
-    // Placeholder - will implement SQLite loading
-    this.pois = this.getSamplePOIs();
+  async initialize(): Promise<void> {
+    if (this.initialized) return;
+
+    try {
+      await this.db.initialize();
+
+      // Check if database is empty and seed if needed
+      const stats = await this.db.getStats();
+      if (stats.totalPOIs === 0) {
+        console.log('Database empty, seeding with initial POI data...');
+        await this.db.seedDatabase(SEED_POIS);
+      }
+
+      this.initialized = true;
+      console.log(`ContentService initialized. Total POIs: ${stats.totalPOIs}`);
+    } catch (error) {
+      console.error('Failed to initialize ContentService:', error);
+      throw error;
+    }
   }
 
   /**
    * Get all POIs
    */
-  getPOIs(): POI[] {
-    return this.pois;
+  async getPOIs(): Promise<POI[]> {
+    this.ensureInitialized();
+    return await this.db.getAllPOIs();
   }
 
   /**
    * Get POIs by category
    */
-  getPOIsByCategory(category: POICategory): POI[] {
-    return this.pois.filter((poi) => poi.category === category);
+  async getPOIsByCategory(category: POICategory): Promise<POI[]> {
+    this.ensureInitialized();
+    return await this.db.getPOIsByCategory(category);
   }
 
   /**
    * Get POI by ID
    */
-  getPOIById(id: string): POI | undefined {
-    return this.pois.find((poi) => poi.id === id);
+  async getPOIById(id: string): Promise<POI | null> {
+    this.ensureInitialized();
+    return await this.db.getPOIById(id);
+  }
+
+  /**
+   * Get POIs near a location
+   */
+  async getPOIsNearLocation(
+    latitude: number,
+    longitude: number,
+    radiusKm: number = 50
+  ): Promise<POI[]> {
+    this.ensureInitialized();
+    return await this.db.getPOIsNearLocation(latitude, longitude, radiusKm);
+  }
+
+  /**
+   * Get POIs within bounding box
+   */
+  async getPOIsInBounds(
+    minLat: number,
+    maxLat: number,
+    minLng: number,
+    maxLng: number
+  ): Promise<POI[]> {
+    this.ensureInitialized();
+    return await this.db.getPOIsInBounds(minLat, maxLat, minLng, maxLng);
   }
 
   /**
@@ -57,43 +107,59 @@ class ContentService {
   }
 
   /**
-   * Sample POIs for initial development
+   * Get database statistics
    */
-  private getSamplePOIs(): POI[] {
-    return [
-      {
-        id: 'agawa-rock',
-        name: 'Agawa Rock Pictographs',
-        latitude: 47.6442,
-        longitude: -84.8897,
-        category: POICategory.INDIGENOUS,
-        triggerDistance: 2000, // 2km
-        content: {
-          quick:
-            "You're approaching Agawa Rock, home to sacred Indigenous pictographs painted hundreds of years ago on the Canadian Shield.",
-          standard:
-            "Agawa Rock in Lake Superior Provincial Park features ancient Ojibwe pictographs painted directly on the 2.7 billion year old Canadian Shield. These sacred images, including the great water lynx Mishipeshu, tell stories of spiritual journeys and encounters with the lake's powerful forces.",
-          deep:
-            "Agawa Rock represents a unique intersection of geological and cultural history. The pictographs were painted using red ochre pigment on the ancient Canadian Shield rock face, which has withstood billions of years of geological change. The images depict Mishipeshu, the great water lynx who controls the lake's waters, along with canoes and other spiritual symbols. These were created as offerings and records of vision quests, accessible only by canoe and during calm water conditions.",
-        },
-      },
-      {
-        id: 'sleeping-giant',
-        name: 'Sleeping Giant',
-        latitude: 48.5184,
-        longitude: -88.8294,
-        category: POICategory.GEOLOGICAL,
-        triggerDistance: 5000, // 5km
-        content: {
-          quick:
-            "That's Sleeping Giant—a massive mesa formation visible from Thunder Bay, sacred to the Ojibwe people.",
-          standard:
-            "The Sleeping Giant is a mesa over 240 meters high formed from ancient volcanic sills. In Ojibwe legend, it's the warrior Nanabijou, turned to stone while protecting the secret location of a silver mine. The formation is composed of diabase rock intruded about 1.1 billion years ago.",
-          deep:
-            "Sleeping Giant Provincial Park's iconic mesa tells both a geological and cultural story. The formation is part of the Logan Sills, diabase intrusions from 1.1 billion years ago that create the distinctive cliff faces. The Ojibwe legend speaks of Nanabijou, who revealed the location of a rich silver mine on condition it remain secret. When white prospectors discovered it, Nanabijou was turned to stone as punishment, creating the formation we see today. The actual silver mining history of Silver Islet nearby adds a layer of truth to the legend.",
-        },
-      },
-    ];
+  async getStats(): Promise<{
+    totalPOIs: number;
+    byCategory: Record<string, number>;
+  }> {
+    this.ensureInitialized();
+    return await this.db.getStats();
+  }
+
+  /**
+   * Add or update a POI
+   */
+  async upsertPOI(poi: POI): Promise<void> {
+    this.ensureInitialized();
+    await this.db.upsertPOI(poi);
+  }
+
+  /**
+   * Delete a POI
+   */
+  async deletePOI(id: string): Promise<void> {
+    this.ensureInitialized();
+    await this.db.deletePOI(id);
+  }
+
+  /**
+   * Reseed database (useful for updates)
+   */
+  async reseedDatabase(): Promise<void> {
+    this.ensureInitialized();
+    await this.db.clearAllPOIs();
+    await this.db.seedDatabase(SEED_POIS);
+    console.log('Database reseeded successfully');
+  }
+
+  /**
+   * Ensure service is initialized
+   */
+  private ensureInitialized(): void {
+    if (!this.initialized) {
+      throw new Error(
+        'ContentService not initialized. Call initialize() first.'
+      );
+    }
+  }
+
+  /**
+   * Close database connection
+   */
+  async close(): Promise<void> {
+    await this.db.close();
+    this.initialized = false;
   }
 }
 
